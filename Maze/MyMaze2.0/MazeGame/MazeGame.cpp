@@ -2,6 +2,25 @@
 
 using namespace std;
 
+#define DelayTime 500   // ms
+
+const char* UnitContentIcon[] = { "  ",  "■" , "□", "  ", "++"};
+
+enum class UnitContent {
+    eWall = 0,
+    eRoad = 1,
+    ePassed = 2,
+    eStart = 3,
+    eEnd = 4
+};
+
+enum class Direction {
+    eDown = 1,
+    eUp = 2,
+    eRight = 3,
+    eLeft = 4
+};
+
 //地图类，矩阵
 class Maze
 {
@@ -15,8 +34,8 @@ public:
     ~Maze();    //析构函数：删除时执行
     void show();    //显示地图
     void Radom(int row, int col, default_random_engine e);   //随机生产地图
-    void Init();
-    const vector<int> hasPath(int row, int col);  //判断有没有通路
+    void Init(int start_row = -1, int start_col = -1, int target_row = -1, int target_col = -1);
+    const vector<Direction> hasPath(int row, int col);  //判断有没有通路
     vector<vector<int>> getMap();
 };
 
@@ -43,12 +62,27 @@ Maze::Maze(int edge) {
     }
 }
 
-void Maze::Init() {
+void Maze::Init(int start_row, int start_col, int target_row, int target_col) {
     for (int i = 0; i < edge; i++) {
         for (int j = 0; j < edge; j++) {
             if (map[i][j] == 2) map[i][j] = 0;
         }
     }
+
+    start_row = start_row == -1 ? 1 : start_row;
+	clamp(start_row, 1, edge - 1);
+
+    start_col = start_col == -1 ? 1 : start_col;
+	clamp(start_col, 1, edge - 1);
+
+    target_row = target_row == -1 ? edge - 2 : target_row;
+	clamp(target_row, 1, edge - 1);
+
+    target_col = target_col == -1 ? edge - 2 : target_col;
+	clamp(target_col, 1, edge - 1);
+
+    map[start_row][start_col] = static_cast<int>(UnitContent::eStart);
+    map[target_row][target_col] = static_cast<int>(UnitContent::eEnd);
 }
 
 void Maze::show() {
@@ -56,9 +90,11 @@ void Maze::show() {
 
     for (int i = 0; i < this->edge; i++) {
         for (int j = 0; j < this->edge; j++) {
-            if (this->map[i][j] == 1) cout << "■";
-            else if (map[i][j] == 2) cout << "□";
-            else cout << "  ";
+            if (this->map[i][j] == 1) cout << UnitContentIcon[1];
+            else if (map[i][j] == 2) cout << UnitContentIcon[2];
+            else if (map[i][j] == 3) cout << UnitContentIcon[3];
+            else if (map[i][j] == 4) cout << UnitContentIcon[4];
+            else cout << UnitContentIcon[0];
         }
         cout << endl;
     }
@@ -68,7 +104,7 @@ void Maze::Radom(int row, int col, default_random_engine e) {
 
     if (row < 1 || row > edge - 1 || col < 1 || col > edge - 1) return;
 
-    vector<int> path = Maze::hasPath(row, col);
+    vector<Direction> path = Maze::hasPath(row, col);
 
     if (path.size() == 0) return;
     uniform_int_distribution<int> u(0, path.size());
@@ -76,28 +112,28 @@ void Maze::Radom(int row, int col, default_random_engine e) {
     for (int i = 0; i < path.size();) {
         int index = u(e) % path.size();
         switch (path[index]) {
-        case 1:     //下
+        case Direction::eDown:     //下
             if (map[row + 2][col] != 2) {
                 map[row + 1][col] = 2;
                 map[row + 2][col] = 2;
                 Radom(row + 2, col, e);
             }
             break;
-        case 2:     //上
+        case Direction::eUp:     //上
             if (map[row - 2][col] != 2) {
                 map[row - 1][col] = 2;
                 map[row - 2][col] = 2;
                 Radom(row - 2, col, e);
             }
             break;
-        case 3:     //右
+        case Direction::eRight:     //右
             if (map[row][col + 2] != 2) {
                 map[row][col + 1] = 2;
                 map[row][col + 2] = 2;
                 Radom(row, col + 2, e);
             }
             break;
-        case 4:     //左
+        case Direction::eLeft:     //左
             if (map[row][col - 2] != 2) {
                 map[row][col - 1] = 2;
                 map[row][col - 2] = 2;
@@ -109,12 +145,12 @@ void Maze::Radom(int row, int col, default_random_engine e) {
     }
 }
 
-const vector<int> Maze::hasPath(int row, int col) {
-    vector<int> t;;
-    if (row - 2 > 0 && map[row - 2][col] == 0) t.push_back(2);
-    if (row + 2 < edge && map[row + 2][col] == 0) t.push_back(1);
-    if (col - 2 > 0 && map[row][col - 2] == 0) t.push_back(4);
-    if (col + 2 < edge && map[row][col + 2] == 0) t.push_back(3);
+const vector<Direction> Maze::hasPath(int row, int col) {
+    vector<Direction> t;;
+    if (row - 2 > 0 && map[row - 2][col] == 0) t.push_back(Direction::eUp);
+    if (row + 2 < edge && map[row + 2][col] == 0) t.push_back(Direction::eDown);
+    if (col - 2 > 0 && map[row][col - 2] == 0) t.push_back(Direction::eLeft);
+    if (col + 2 < edge && map[row][col + 2] == 0) t.push_back(Direction::eRight);
     return t;
 }
 
@@ -152,9 +188,11 @@ void Player::Show() {
 
     for (int i = 0; i < this->edge; i++) {
         for (int j = 0; j < this->edge; j++) {
-            if (this->maze[i][j] == 1) cout << "■";
-            else if (maze[i][j] == 2) cout << "□";
-            else cout << "  ";
+            if (this->maze[i][j] == 1) cout << UnitContentIcon[1];
+            else if (maze[i][j] == 2) cout << UnitContentIcon[2];
+            else if (maze[i][j] == 3) cout << UnitContentIcon[3];
+            else if (maze[i][j] == 4) cout << UnitContentIcon[4];
+            else cout << UnitContentIcon[0];
         }
         cout << endl;
     }
@@ -172,46 +210,69 @@ void Player::findOut() {
         vector<int> cur = node.top();
         row = cur[0]; col = cur[1];
 
-        if (row == edge - 2 && col == edge - 2) {
-            maze[row][col] = 2;
-            isEnd = true;
-        }
-        else if (row + 1 < edge && maze[row + 1][col] == 0) {
-            coordinate[0] = row + 1;
-            coordinate[1] = col;
-            node.push(coordinate);
-            maze[row + 1][col] = 2;
-            Show();
-            Sleep(1000);
-        }
-        else if (col + 1 < edge && maze[row][col + 1] == 0) {
-            coordinate[0] = row;
-            coordinate[1] = col + 1;
-            node.push(coordinate);
-            maze[row][col + 1] = 2;
-            Show();
-            Sleep(1000);
-        }
-        else if (col - 1 > 0 && maze[row][col - 1] == 0) {
-            coordinate[0] = row;
-            coordinate[1] = col - 1;
-            node.push(coordinate);
-            maze[row][col - 1] = 2;
-            Show();
-            Sleep(1000);
-        }
-        else if (row - 1 > 0 && maze[row - 1][col] == 0) {
-            coordinate[0] = row - 1;
-            coordinate[1] = col;
-            node.push(coordinate);
-            maze[row - 1][col] = 2;
-            Show();
-            Sleep(1000);
-        }
-        else {
-            maze[row][col] = 3;
-            node.pop();
-        }
+        if (row + 1 < edge) {
+			if (maze[row + 1][col] == 0) {
+				coordinate[0] = row + 1;
+				coordinate[1] = col;
+				node.push(coordinate);
+				maze[coordinate[0]][coordinate[1]] = 2;
+				Show();
+				Sleep(DelayTime);
+				continue;
+			}
+			else if (maze[row + 1][col] == 4) {
+				isEnd = true;
+				break;
+			}
+		}
+        if (col + 1 < edge) {
+			if (maze[row][col + 1] == 0) {
+				coordinate[0] = row;
+				coordinate[1] = col + 1;
+				node.push(coordinate);
+				maze[coordinate[0]][coordinate[1]] = 2;
+				Show();
+				Sleep(DelayTime);
+				continue;
+			}
+			else if (maze[row][col + 1] == 4) {
+				isEnd = true;
+				break;
+			}
+		}
+        if (col - 1 > 0) {
+			if (maze[row][col - 1] == 0) {
+				coordinate[0] = row;
+				coordinate[1] = col - 1;
+				node.push(coordinate);
+				maze[coordinate[0]][coordinate[1]] = 2;
+				Show();
+				Sleep(DelayTime);
+				continue;
+			}
+			else if (maze[row][col - 1] == 4) {
+				isEnd = true;
+				break;
+			}
+		}
+        if (row - 1 > 0) {
+			if (maze[row - 1][col] == 0) {
+				coordinate[0] = row - 1;
+				coordinate[1] = col;
+				node.push(coordinate);
+				maze[coordinate[0]][coordinate[1]] = 2;
+				Show();
+				Sleep(DelayTime);
+				continue;
+			}
+			else if (maze[row - 1][col] == 4) {
+				isEnd = true;
+				break;
+			}
+		}
+
+		maze[row][col] = 3;
+		node.pop();
     }
 }
 
@@ -224,9 +285,11 @@ int main() {
     default_random_engine e;    //随机数引擎
     e.seed(time(0));
 
-    cout << "建造多大的地图(0-50) ?";
+    cout << "建造多大的地图(3-15) ?";
     int x;
     cin >> x;
+    x = max(3, x);
+    x = min(15, x);
     Maze maze(x);   //地图类
 
 
